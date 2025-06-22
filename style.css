@@ -145,3 +145,58 @@ header {
     font-size: 0.9rem;
   }
 }
+
+/* Modal personalizado sin Bootstrap */
+.modal-custom {
+  position: fixed;
+  z-index: 9999;
+  left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(44,62,80,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-custom[hidden] {
+  display: none !important;
+}
+.modal-custom-dialog {
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+.modal-custom-content {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(44,62,80,0.18);
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  min-width: 320px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.modal-custom-header {
+  margin-bottom: 1rem;
+}
+.modal-custom-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #2c3e50;
+  text-align: center;
+}
+.modal-custom-body {
+  margin-bottom: 1.5rem;
+}
+.modal-custom-footer {
+  display: flex;
+  justify-content: center;
+}
+@media (max-width: 600px) {
+  .modal-custom-content {
+    min-width: 90vw;
+    padding: 1rem 0.5rem 1rem 0.5rem;
+  }
+  .modal-custom-title {
+    font-size: 1.1rem;
+  }
+}

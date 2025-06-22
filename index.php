@@ -22,11 +22,34 @@
     <button class="btn btn-success" id="btnNuevaSopa">Nueva Sopa</button>
   </div>
 
+  <!-- Modal de selección de dificultad (sin Bootstrap) -->
+  <div id="modalDificultad" class="modal-custom">
+    <div class="modal-custom-dialog">
+      <div class="modal-custom-content">
+        <div class="modal-custom-header">
+          <h5 class="modal-custom-title">Selecciona la dificultad</h5>
+        </div>
+        <div class="modal-custom-body">
+          <label for="dificultad-modal" class="form-label">Tamaño de la sopa:</label>
+          <select id="dificultad-modal" class="form-select">
+            <option value="10" selected>Fácil (10x10)</option>
+            <option value="14">Media (14x14)</option>
+            <option value="18">Difícil (18x18)</option>
+          </select>
+        </div>
+        <div class="modal-custom-footer">
+          <button type="button" class="btn btn-primary" id="btnElegirDificultad">Comenzar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <footer class="footer-custom mt-5 py-3">
     <div class="container text-center">
-      <span class="footer-text">Hecho con ❤️ por Tu Nombre &copy; <?php echo date('Y'); ?> | Sopa de Letras Pro</span>
+      <span class="footer-text">Hecho con ❤️ por Renato Leal, Cristian Morales, Benjamín Muñoz, Martín Ovalle, Nicolás Toro &copy; <?php echo date('Y'); ?> | Sopa de Letras</span>
     </div>
   </footer>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script> -->
   <script src="script.js"></script>
 </body>
 </html>

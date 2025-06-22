@@ -22,7 +22,6 @@ const conjunto = [
   'VPN', 'WEB', 'WIFI', 'WINDOWS', 'ZIP', 'FUNA', 'JAIMITO'
 ];
 
-
 let tamanio = 10;
 
 function obtenerPalabrasAleatorias(array, cantidad = 6) {
@@ -40,9 +39,11 @@ let palabras = obtenerPalabrasAleatorias(conjunto.filter(p => p.length <= tamani
 
 let grid = [], seleccion = [], encontradas = [];
 let seleccionando = false;
+let celdaPalabras = {}; // Nuevo: mapea "x,y" a lista de palabras
 
 function generarGrid() {
   grid = Array.from({ length: tamanio }, () => Array(tamanio).fill(""));
+  celdaPalabras = {}; // Reinicia el mapeo
   palabras.forEach(palabra => colocarPalabra(palabra));
   for (let i = 0; i < tamanio; i++)
     for (let j = 0; j < tamanio; j++)
@@ -52,22 +53,33 @@ function generarGrid() {
 function colocarPalabra(palabra) {
   const direcciones = [[1,0],[0,1],[1,1],[-1,1]];
   let colocada = false;
-  while (!colocada) {
+  let intentos = 0;
+  while (!colocada && intentos < 100) {
     let x = Math.floor(Math.random() * tamanio);
     let y = Math.floor(Math.random() * tamanio);
     let [dx, dy] = direcciones[Math.floor(Math.random() * direcciones.length)];
     let puede = true;
     for (let i = 0; i < palabra.length; i++) {
       let nx = x + dx * i, ny = y + dy * i;
-      if (nx < 0 || ny < 0 || nx >= tamanio || ny >= tamanio || (grid[nx][ny] && grid[nx][ny] !== palabra[i])) {
+      if (nx < 0 || ny < 0 || nx >= tamanio || ny >= tamanio) {
+        puede = false; break;
+      }
+      if (grid[nx][ny] !== "" && grid[nx][ny] !== palabra[i]) {
         puede = false; break;
       }
     }
     if (puede) {
-      for (let i = 0; i < palabra.length; i++)
-        grid[x + dx * i][y + dy * i] = palabra[i];
+      for (let i = 0; i < palabra.length; i++) {
+        let nx = x + dx * i, ny = y + dy * i;
+        grid[nx][ny] = palabra[i];
+        // Nuevo: registra la palabra en la celda
+        const key = nx + "," + ny;
+        if (!celdaPalabras[key]) celdaPalabras[key] = [];
+        celdaPalabras[key].push(palabra);
+      }
       colocada = true;
     }
+    intentos++;
   }
 }
 
@@ -117,11 +129,41 @@ function limpiarSeleccion() {
 }
 
 function marcarCelda(cell) {
-  if (!cell || !cell.classList.contains("cell") || cell.classList.contains("found")) return;
+  if (!cell || !cell.classList.contains("cell")) return;
   const x = parseInt(cell.dataset.x), y = parseInt(cell.dataset.y);
   if (seleccion.some(p => p.x === x && p.y === y)) return;
-  cell.classList.add("selected");
-  seleccion.push({x, y, letra: grid[x][y]});
+
+  if (seleccion.length === 0) {
+    // Primera celda
+    cell.classList.add("selected");
+    seleccion.push({x, y, letra: grid[x][y]});
+  } else {
+    // Segunda celda o más: selecciona la línea completa si está alineada
+    const {x: x0, y: y0} = seleccion[0];
+    const dx = x - x0;
+    const dy = y - y0;
+    // Normaliza dirección a -1, 0 o 1
+    const stepX = dx === 0 ? 0 : dx / Math.abs(dx);
+    const stepY = dy === 0 ? 0 : dy / Math.abs(dy);
+    // Solo permite líneas rectas (horizontal, vertical, diagonal)
+    if (
+      (stepX === 0 && stepY !== 0) ||
+      (stepY === 0 && stepX !== 0) ||
+      (Math.abs(dx) === Math.abs(dy) && stepX !== 0 && stepY !== 0)
+    ) {
+      // Selecciona todas las celdas intermedias
+      const length = Math.max(Math.abs(dx), Math.abs(dy));
+      limpiarSeleccion();
+      seleccion = [];
+      for (let i = 0; i <= length; i++) {
+        const nx = x0 + stepX * i;
+        const ny = y0 + stepY * i;
+        const c = document.querySelector(`.cell[data-x="${nx}"][data-y="${ny}"]`);
+        if (c) c.classList.add("selected");
+        seleccion.push({x: nx, y: ny, letra: grid[nx][ny]});
+      }
+    }
+  }
 }
 
 function dibujarGrid() {
@@ -181,12 +223,42 @@ function validarSeleccion() {
   if (encontrada) {
     encontradas.push(encontrada);
     seleccion.forEach(p => {
+      const key = p.x + "," + p.y;
+      // Determina si la celda pertenece a alguna palabra ya encontrada
+      let perteneceAEncontrada = false;
+      if (celdaPalabras[key]) {
+        for (const palabra of celdaPalabras[key]) {
+          if (encontradas.includes(palabra)) {
+            perteneceAEncontrada = true;
+            break;
+          }
+        }
+      }
       document.querySelectorAll(".cell").forEach(c => {
         if (parseInt(c.dataset.x) === p.x && parseInt(c.dataset.y) === p.y) {
           c.classList.remove("selected");
-          c.classList.add("found");
+          if (perteneceAEncontrada) c.classList.add("found");
         }
       });
+    });
+    // Además, repinta todas las celdas compartidas por si alguna letra compartida debe actualizarse
+    document.querySelectorAll(".cell").forEach(c => {
+      const x = parseInt(c.dataset.x), y = parseInt(c.dataset.y);
+      const key = x + "," + y;
+      let perteneceAEncontrada = false;
+      if (celdaPalabras[key]) {
+        for (const palabra of celdaPalabras[key]) {
+          if (encontradas.includes(palabra)) {
+            perteneceAEncontrada = true;
+            break;
+          }
+        }
+      }
+      if (perteneceAEncontrada) {
+        c.classList.add("found");
+      } else {
+        c.classList.remove("found");
+      }
     });
     seleccion = [];
     actualizarLista();
@@ -242,13 +314,22 @@ function reiniciarJuego() {
   generarGrid(); dibujarGrid(); actualizarLista();
 }
 
+function mostrarJuego(visible) {
+  // Muestra u oculta el grid y la lista de palabras
+  const gridDiv = document.getElementById("grid");
+  const wordList = document.getElementById("wordList");
+  const btnNueva = document.getElementById("btnNuevaSopa");
+  if (gridDiv) gridDiv.style.display = visible ? "" : "none";
+  if (wordList) wordList.style.display = visible ? "" : "none";
+  if (btnNueva) btnNueva.style.display = visible ? "" : "none";
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   const modalDiv = document.getElementById('modalDificultad');
-  let modal;
-  if (modalDiv && typeof bootstrap !== 'undefined') {
-    modal = new bootstrap.Modal(modalDiv, {backdrop: 'static', keyboard: false});
-    modal.show();
-
+  // Si existe el modal, muéstralo y oculta el juego
+  if (modalDiv) {
+    modalDiv.hidden = false;
+    mostrarJuego(false);
     // Botón "Comenzar"
     const btn = document.getElementById('btnElegirDificultad');
     if (btn) {
@@ -264,16 +345,27 @@ document.addEventListener('DOMContentLoaded', function() {
         seleccion = []; encontradas = [];
         document.getElementById("mensaje").textContent = "";
         generarGrid(); dibujarGrid(); actualizarLista();
-        modal.hide();
+        // Oculta el modal personalizado y muestra el juego
+        modalDiv.hidden = true;
+        mostrarJuego(true);
       };
     }
+  } else {
+    // Si no hay modal, inicializa el juego normalmente
+    generarGrid(); dibujarGrid(); actualizarLista();
+    mostrarJuego(true);
   }
 
-  // Botón "Nueva Sopa" SIEMPRE reinicia la sopa con la dificultad actual
+  // Botón "Nueva Sopa" ahora muestra el selector de dificultad
   const btnNueva = document.getElementById('btnNuevaSopa');
   if (btnNueva) {
     btnNueva.onclick = function() {
-      reiniciarJuego();
+      if (modalDiv) {
+        modalDiv.hidden = false;
+        mostrarJuego(false);
+      } else {
+        reiniciarJuego();
+      }
     };
   }
 });
