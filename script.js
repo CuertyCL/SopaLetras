@@ -129,7 +129,10 @@ function mantenerSeleccionTouch(e) {
 }
 
 function limpiarSeleccion() {
-  document.querySelectorAll(".cell.selected").forEach(c => c.classList.remove("selected"));
+  document.querySelectorAll(".cell.selected, .cell.incorrecta").forEach(c => {
+    c.classList.remove("selected");
+    c.classList.remove("incorrecta");
+  });
   seleccion = [];
   direccionSeleccion = null;
 }
