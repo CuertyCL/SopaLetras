@@ -23,6 +23,8 @@ const conjunto = [
 ];
 
 let tamanio = 10;
+let direccionSeleccion = null; // {dx, dy}
+
 
 function obtenerPalabrasAleatorias(array, cantidad = 6) {
   const copia = [...array];
@@ -83,87 +85,107 @@ function colocarPalabra(palabra) {
   }
 }
 
-// Mouse
+let presionando = false;
+
+
 function iniciarSeleccion(e) {
-  if (e.button !== 0) return; // solo click izquierdo
-  limpiarSeleccion(); // Limpia selección anterior
-  seleccionando = true;
+  // Solo verifica e.button si es un evento de mouse
+  if (e.type === "mousedown" && e.button !== 0) return;
+  limpiarSeleccion();
+  presionando = true;
   seleccion = [];
   marcarCelda(e.target);
 }
-function arrastrarSeleccion(e) {
-  if (!seleccionando) return;
+
+function mantenerSeleccion(e) {
+  if (!presionando) return;
   marcarCelda(e.target);
 }
+
 function terminarSeleccion(e) {
-  if (!seleccionando) return;
-  seleccionando = false;
+  if (!presionando) return;
+  presionando = false;
   validarSeleccion();
 }
 
 // Touch
 function iniciarSeleccionTouch(e) {
-  limpiarSeleccion(); // Limpia selección anterior
-  seleccionando = true;
+  limpiarSeleccion();
+  presionando = true;
   seleccion = [];
-  const touch = e.touches[0];
-  const target = document.elementFromPoint(touch.clientX, touch.clientY);
-  marcarCelda(target);
+  if (e.touches && e.touches.length > 0) {
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    marcarCelda(target);
+  }
 }
-function arrastrarSeleccionTouch(e) {
-  if (!seleccionando) return;
-  const touch = e.touches[0];
-  const target = document.elementFromPoint(touch.clientX, touch.clientY);
-  marcarCelda(target);
-}
-function terminarSeleccionTouch(e) {
-  if (!seleccionando) return;
-  seleccionando = false;
-  validarSeleccion();
+function mantenerSeleccionTouch(e) {
+  if (!presionando) return;
+  if (e.touches && e.touches.length > 0) {
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    marcarCelda(target);
+  }
 }
 
 function limpiarSeleccion() {
-  document.querySelectorAll('.cell.selected').forEach(cell => {
-    cell.classList.remove('selected');
-  });
+  document.querySelectorAll(".cell.selected").forEach(c => c.classList.remove("selected"));
+  seleccion = [];
+  direccionSeleccion = null;
 }
 
-function marcarCelda(cell) {
-  if (!cell || !cell.classList.contains("cell")) return;
-  const x = parseInt(cell.dataset.x), y = parseInt(cell.dataset.y);
+function marcarCelda(target) {
+  if (!target || !target.classList.contains("cell")) return;
+  const x = parseInt(target.dataset.x);
+  const y = parseInt(target.dataset.y);
+
+  // Evita seleccionar la misma celda dos veces seguidas
   if (seleccion.some(p => p.x === x && p.y === y)) return;
 
   if (seleccion.length === 0) {
-    // Primera celda
-    cell.classList.add("selected");
-    seleccion.push({x, y, letra: grid[x][y]});
-  } else {
-    // Segunda celda o más: selecciona la línea completa si está alineada
-    const {x: x0, y: y0} = seleccion[0];
-    const dx = x - x0;
-    const dy = y - y0;
-    // Normaliza dirección a -1, 0 o 1
-    const stepX = dx === 0 ? 0 : dx / Math.abs(dx);
-    const stepY = dy === 0 ? 0 : dy / Math.abs(dy);
-    // Solo permite líneas rectas (horizontal, vertical, diagonal)
-    if (
-      (stepX === 0 && stepY !== 0) ||
-      (stepY === 0 && stepX !== 0) ||
-      (Math.abs(dx) === Math.abs(dy) && stepX !== 0 && stepY !== 0)
-    ) {
-      // Selecciona todas las celdas intermedias
-      const length = Math.max(Math.abs(dx), Math.abs(dy));
-      limpiarSeleccion();
-      seleccion = [];
-      for (let i = 0; i <= length; i++) {
-        const nx = x0 + stepX * i;
-        const ny = y0 + stepY * i;
-        const c = document.querySelector(`.cell[data-x="${nx}"][data-y="${ny}"]`);
-        if (c) c.classList.add("selected");
-        seleccion.push({x: nx, y: ny, letra: grid[nx][ny]});
-      }
-    }
+    // Primera celda: siempre se puede seleccionar
+    seleccion.push({ x, y, letra: grid[x][y] });
+    target.classList.add("selected");
+    direccionSeleccion = null;
+    return;
   }
+
+  if (seleccion.length === 1) {
+    // Segunda celda: define la dirección
+    const dx = x - seleccion[0].x;
+    const dy = y - seleccion[0].y;
+    // Solo permite horizontal, vertical o diagonal perfecta
+    if (
+      !(
+        (dx === 0 && dy !== 0) ||
+        (dx !== 0 && dy === 0) ||
+        (Math.abs(dx) === Math.abs(dy) && dx !== 0)
+      )
+    ) {
+      return;
+    }
+    direccionSeleccion = { dx: Math.sign(dx), dy: Math.sign(dy) };
+    seleccion.push({ x, y, letra: grid[x][y] });
+    target.classList.add("selected");
+    return;
+  }
+
+  // A partir de la tercera celda, solo permite seguir la dirección
+  const last = seleccion[seleccion.length - 1];
+  if (
+    direccionSeleccion &&
+    x - last.x === direccionSeleccion.dx &&
+    y - last.y === direccionSeleccion.dy
+  ) {
+    seleccion.push({ x, y, letra: grid[x][y] });
+    target.classList.add("selected");
+  }
+}
+
+function terminarSeleccionTouch(e) {
+  if (!presionando) return;
+  presionando = false;
+  validarSeleccion();
 }
 
 function dibujarGrid() {
@@ -179,36 +201,19 @@ function dibujarGrid() {
       cell.dataset.y = j;
       // Mouse events
       cell.onmousedown = iniciarSeleccion;
-      cell.onmouseenter = arrastrarSeleccion;
-      cell.onmouseup = terminarSeleccion;
+      cell.onmouseenter = mantenerSeleccion;
       // Touch events
       cell.ontouchstart = iniciarSeleccionTouch;
-      cell.ontouchmove = arrastrarSeleccionTouch;
-      cell.ontouchend = terminarSeleccionTouch;
-      // Click simple
-      cell.onclick = seleccionarCelda;
+      cell.ontouchmove = mantenerSeleccionTouch;
       gridDiv.appendChild(cell);
     }
-  // Evitar selección de texto al arrastrar
   gridDiv.onmousedown = e => e.preventDefault();
-  gridDiv.ontouchstart = e => e.preventDefault();
 }
 
-// Selección por click simple
-function seleccionarCelda(e) {
-  const cell = e.target;
-  if (cell.classList.contains("found")) return;
-  const x = parseInt(cell.dataset.x), y = parseInt(cell.dataset.y);
-  const idx = seleccion.findIndex(p => p.x === x && p.y === y);
-  if (idx !== -1) {
-    cell.classList.remove("selected");
-    seleccion.splice(idx, 1);
-  } else {
-    cell.classList.add("selected");
-    seleccion.push({x, y, letra: grid[x][y]});
-  }
-  validarSeleccion();
-}
+// Escucha mouseup/touchend en el documento para terminar selección
+document.addEventListener('mouseup', terminarSeleccion);
+document.addEventListener('touchend', terminarSeleccionTouch);
+
 
 function validarSeleccion() {
   if (seleccion.length < 2) return;
@@ -262,8 +267,9 @@ function validarSeleccion() {
     });
     seleccion = [];
     actualizarLista();
-    if (encontradas.length === palabras.length)
-      document.getElementById("mensaje").textContent = "¡Excelente! Has completado la sopa 🎉";
+    if (encontradas.length === palabras.length) {
+      mostrarModalFelicidades();
+    }
   } else {
     // Animación roja y limpiar después de un pequeño delay
     seleccion.forEach(p => {
@@ -324,6 +330,46 @@ function mostrarJuego(visible) {
   if (btnNueva) btnNueva.style.display = visible ? "" : "none";
 }
 
+function mostrarNivelDificultad() {
+  let texto = "";
+  if (tamanio === 10) texto = "Nivel: Fácil (10x10)";
+  else if (tamanio === 14) texto = "Nivel: Media (14x14)";
+  else if (tamanio === 18) texto = "Nivel: Difícil (18x18)";
+  else texto = "Nivel personalizado";
+  document.getElementById("nivelDificultad").textContent = texto;
+}
+
+function mostrarModalFelicidades() {
+  const modal = document.getElementById('modalFelicidades');
+  if (!modal) return;
+  // Selecciona la dificultad actual en el select
+  const select = document.getElementById('dificultad-felicidades');
+  if (select) select.value = tamanio;
+  modal.hidden = false;
+  mostrarJuego(false);
+
+  // Botón volver a jugar
+  const btn = document.getElementById('btnVolverJugar');
+  if (btn) {
+    btn.onclick = function() {
+      // Cambia la dificultad si el usuario la seleccionó
+      if (select) {
+        tamanio = parseInt(select.value);
+      }
+      let cantidad = 6;
+      if (tamanio >= 14) cantidad = 9;
+      if (tamanio >= 18) cantidad = 12;
+      palabras = obtenerPalabrasAleatorias(conjunto.filter(p => p.length <= tamanio), cantidad);
+      seleccion = []; encontradas = [];
+      document.getElementById("mensaje").textContent = "";
+      generarGrid(); dibujarGrid(); actualizarLista();
+      mostrarNivelDificultad();
+      modal.hidden = true;
+      mostrarJuego(true);
+    };
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   const modalDiv = document.getElementById('modalDificultad');
   // Si existe el modal, muéstralo y oculta el juego
@@ -345,6 +391,7 @@ document.addEventListener('DOMContentLoaded', function() {
         seleccion = []; encontradas = [];
         document.getElementById("mensaje").textContent = "";
         generarGrid(); dibujarGrid(); actualizarLista();
+        mostrarNivelDificultad(); // <-- Agrega esto aquí
         // Oculta el modal personalizado y muestra el juego
         modalDiv.hidden = true;
         mostrarJuego(true);
@@ -353,6 +400,7 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     // Si no hay modal, inicializa el juego normalmente
     generarGrid(); dibujarGrid(); actualizarLista();
+    mostrarNivelDificultad(); // <-- Agrega esto aquí
     mostrarJuego(true);
   }
 
@@ -365,9 +413,8 @@ document.addEventListener('DOMContentLoaded', function() {
         mostrarJuego(false);
       } else {
         reiniciarJuego();
+        mostrarNivelDificultad(); // <-- Agrega esto aquí también
       }
     };
   }
 });
-
-
